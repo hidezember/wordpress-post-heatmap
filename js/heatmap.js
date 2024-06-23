@@ -1,108 +1,119 @@
-document.addEventListener('DOMContentLoaded', function() {
-    var chartDom = document.getElementById('heatmap');
-    var myChart = echarts.init(chartDom);
-    window.onresize = function() {
-        myChart.resize();
-    };
+const chartDom = document.getElementById('heatmap');
+const myChart = echarts.init(chartDom);
+window.onresize = function () {
+    myChart.resize();
+};
 
-    var dataMap = new Map(Object.entries(heatmapData.posts));
+let option;
+const dataMap = new Map();
 
-    var data = [];
-    for (const [key, value] of dataMap.entries()) {
-        data.push([key, value.length]);
+heatmapData.forEach(function(post) {
+    const key = post.date; // Date of the post
+    const value = dataMap.get(key);
+    const wordCount = (post.word_count / 1000).toFixed(2);// Word count of the post
+    const link = post.url; // URL of the post
+    const title = post.title; // Title of the post
+    console.log(key, value, wordCount, link, title)
+
+    // In the case of multiple articles on the same day, prefer the one with more words.
+    if (value == null || wordCount > value.wordCount) {
+        dataMap.set(key, {wordCount, link, title});
     }
+});
 
-    var startDate = new Date();
-    var year_Mill = startDate.setFullYear((startDate.getFullYear() - 1));
-    startDate = +new Date(year_Mill);
-    var endDate = +new Date();
+const data = [];
+for (const [key, value] of dataMap.entries()) {
+    data.push([key, value.wordCount]);
+}
 
-    startDate = echarts.format.formatTime('yyyy-MM-dd', startDate);
+
+let startDate = new Date();
+const year_Mill = startDate.setFullYear((startDate.getFullYear() - 1));
+startDate = +new Date(year_Mill);
+let endDate = +new Date();
+
+const dayTime = 3600 * 24 * 1000;
+startDate = echarts.format.formatTime('yyyy-MM-dd', startDate);
+endDate = echarts.format.formatTime('yyyy-MM-dd', endDate);
+
+// change date range according to months we want to render
+function heatmap_width(months) {
+    let startDate = new Date();
+    const mill = startDate.setMonth((startDate.getMonth() - months));
+    let endDate = +new Date();
+    startDate = +new Date(mill);
+
     endDate = echarts.format.formatTime('yyyy-MM-dd', endDate);
+    startDate = echarts.format.formatTime('yyyy-MM-dd', startDate);
 
-    var prefersDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const showmonth = [];
+    showmonth.push([
+        startDate,
+        endDate
+    ]);
+    return showmonth
+}
 
-    var lightTheme = {
-        backgroundColor: '#FFFFFF',
-        fangkuaicolor: '#F4F4F4',
-        gaoliangcolor: ['#ffd0b6'],
-        riqiColor: '#999',
-        textbrcolor: '#FFF',
-        xiankuangcolor: 'rgba(0, 0, 0, 0.0)',
-    };
+function getRangeArr() {
+    const windowWidth = window.innerWidth;
+    if (windowWidth >= 600) {
+        return heatmap_width(12);
+    } else if (windowWidth >= 400) {
+        return heatmap_width(9);
+    } else {
+        return heatmap_width(6);
+    }
+}
 
-    var darkTheme = {
-        backgroundColor: '#1A1718',
-        fangkuaicolor: '#282325',
-        gaoliangcolor: ['#b25f2f'],
-        riqiColor: '#666',
-        textbrcolor: '#332D2F',
-        xiankuangcolor: 'rgba(0, 0, 0, 0.0)',
-    };
+option = {
+    visualMap: {
+        min: 0,
+        max: 10,
+        type: 'piecewise',
+        orient: 'horizontal',
+        left: 'center',
+        top: 0,
 
-    var currentTheme = prefersDarkMode ? darkTheme : lightTheme;
-
-    var option = {
-        tooltip: {
-            hideDelay: 1000,
-            enterable: true,
-            backgroundColor: currentTheme.textbrcolor,
-            borderWidth: 0,
-            formatter: function (p) {
-                const date = p.data[0];
-                const posts = dataMap.get(date);
-                var content = `<span style="font-size: 0.75rem;font-family: var(--font-family-code);">${date}</span>`;
-                for (const post of posts) {
-                    var link = post.url;
-                    var title = post.title;
-                    content += `<br><a href="${link}" target="_blank">${title}</a><br>`;
-                }
-                return content;
+        inRange: {
+            //  [floor color, ceiling color]
+            color: ['#7aa8744c', '#7AA874']
+        },
+    },
+    calendar: {
+        top: 80,
+        left: 20,
+        right: 4,
+        cellSize: ['auto', 12],
+        range: getRangeArr(),
+        itemStyle: {
+            color: '#F1F1F1',
+            borderWidth: 2.5,
+            borderColor: '#fff',
+        },
+        yearLabel: { show: false },
+        // the splitline between months. set to transparent for now.
+        splitLine: {
+            lineStyle: {
+                color: 'rgba(0, 0, 0, 0.0)',
+                // shadowColor: 'rgba(0, 0, 0, 0.5)',
+                // shadowBlur: 5,
+                // width: 0.5,
+                // type: 'dashed',
             }
-        },
-        visualMap: {
-            show: false,
-            inRange: { color: currentTheme.gaoliangcolor },
-        },
-        calendar: {
-            left: 20,
-            top: 20,
-            bottom: 0,
-            right: 0,
-            cellSize: ['auto', 13],
-            range: [startDate, endDate],
-            itemStyle: {
-                color: currentTheme.fangkuaicolor,
-                borderWidth: 3.5,
-                borderColor: currentTheme.backgroundColor,
-            },
-            yearLabel: { show: false },
-            monthLabel: {
-                nameMap: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
-                textStyle: { color: currentTheme.riqiColor }
-            },
-            dayLabel: {
-                firstDay: 1,
-                nameMap: ['日', '一', '', '三', '', '五', ''],
-                textStyle: { color: currentTheme.riqiColor }
-            },
-            splitLine: {
-                lineStyle: { color: currentTheme.xiankuangcolor }
-            }
-        },
-        series: {
-            type: 'heatmap',
-            coordinateSystem: 'calendar',
-            data: data,
         }
-    };
+    },
+    series: {
+        type: 'heatmap',
+        coordinateSystem: 'calendar',
+        data: data,
+    }
+};
 
-    myChart.setOption(option);
+myChart.setOption(option);
 
-    myChart.on('click', function(params) {
-        if (params.componentType === 'series') {
-            const post = dataMap.get(params.data[0])[0];
-            window.open(post.url, '_blank').focus();
-        }
-    });
+myChart.on('click', function (params) {
+    if (params.componentType === 'series') {
+        const post = dataMap.get(params.data[0]);
+        window.open(post.link, '_blank').focus();
+    }
 });
